@@ -5,23 +5,47 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
+	"net"
 	"net/http"
 )
+
+const (
+	URL    string = "https://api.ipify.org?format=json"
+	IP_KEY string = "ip"
+)
+
+func find_local_ip() {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Println(r.(error).Error())
+		}
+	}()
+
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		panic(err)
+	}
+
+	for _, addr := range addrs {
+		if ipNet, ok := addr.(*net.IPNet); ok && !ipNet.IP.IsLoopback() {
+			if ipNet.IP.To4() != nil {
+				fmt.Println("Local IPv4 address:", ipNet.IP.String())
+			}
+		}
+	}
+}
 
 func find_ip() {
 	defer func() {
 		if r := recover(); r != nil {
-			err := r.(error)
-			fmt.Println(err.Error())
+			fmt.Println(r.(error).Error())
 		}
 	}()
 
-	const URL = "https://api.ipify.org?format=json"
-	const KEY = "ip"
-
 	resp, err := http.Get(URL)
 	if err != nil {
-		panic(err)
+		panic(errors.New("lost network connection"))
 	}
 	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
@@ -34,7 +58,7 @@ func find_ip() {
 	if err != nil {
 		panic(err)
 	}
-	if ip, ok := ipInfo[KEY]; ok {
+	if ip, ok := ipInfo[IP_KEY]; ok {
 		fmt.Println("Public IP Address:", ip)
 		return
 	}
@@ -42,5 +66,6 @@ func find_ip() {
 }
 
 func main() {
+	find_local_ip()
 	find_ip()
 }
